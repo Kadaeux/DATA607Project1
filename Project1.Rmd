@@ -1,0 +1,172 @@
+---
+title: "DATA607 Project 1"
+author: "Nicholas Kunze"
+output:
+  html_document:
+    highlight: pygments
+    theme: cerulean
+    toc: true
+    toc_float: true
+  pdf_document: default
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+if("tidyverse" %in% rownames(installed.packages()) == FALSE) {install.packages("tidyverse")}
+library(tidyverse)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r get-raw-data}
+chessTxt <- paste(readLines(url("https://raw.githubusercontent.com/Kadaeux/DATA607Project1/master/data/tournamentinfo.txt")))
+chessTxt[4]
+chessTxt[5]
+chessTxt[6]
+chessTxt[7]
+```
+
+So, we need to take out the player's name, their points, their and their opponents elo, and their state. Each of these, for each player, are spread out across two separate lines. For each player, they're in the same relative location on the line. So lines beginning with dashes can be skipped, lines beginning with numbers will contain the name, opponents, and total points, and the line after that will contain that same player's state and pre-elo. 
+
+The first time I did this, I had Total Points as a Double and the Elos as an Integer... this did not take into account the P in these values. Thus, I simple switched them all to strings to better handle it.
+
+
+```{r parse-by-line}
+chessPlayers <- data.frame(Id=character(),
+                 Name=character(),
+                 State=character(),
+                 TotalPoints=character(),
+                 PreElo=character(),
+                 AvgPreEnElo=character(),
+                 en1=character(),
+                 en2=character(),
+                 en3=character(),
+                 en4=character(),
+                 en5=character(),
+                 en6=character(),
+                 en7=character(),
+                 stringsAsFactors=FALSE)
+for (i in 4:length(chessTxt)){
+   line <- trimws(chessTxt[i])
+   enelo <- 0
+   if(grepl("^-", line)) {
+     next
+   } else if(grepl("^[0-9]", line)) {
+     tokLine <- strsplit(line, "\\|")
+     playerId <- trimws(tokLine[[1]][1])
+     playerName <- trimws(tokLine[[1]][2])
+     tp <- trimws(tokLine[[1]][3])
+     en1 <- trimws(str_match(tokLine[[1]][4], "\\s+.*"))[1]
+     en2 <- trimws(str_match(tokLine[[1]][5], "\\s+.*"))[1]
+     en3 <- trimws(str_match(tokLine[[1]][6], "\\s+.*"))[1]
+     en4 <- trimws(str_match(tokLine[[1]][7], "\\s+.*"))[1]
+     en5 <- trimws(str_match(tokLine[[1]][8], "\\s+.*"))[1]
+     en6 <- trimws(str_match(tokLine[[1]][9], "\\s+.*"))[1]
+     en7 <- trimws(str_match(tokLine[[1]][10], "\\s+.*"))[1]
+   } else if (grepl("^[A-Z]", line)){
+     tokLine <- strsplit(line, "\\|")
+     state <- trimws(tokLine[[1]][1])
+     elo <- trimws(str_match(tokLine[[1]][2], ":.*->"))[1]
+     elo <- str_remove_all(elo, ":\\s*")
+     elo <- str_remove(elo, "->")
+     
+     chessPlayers[nrow(chessPlayers) + 1,] = list(playerId,
+                                                  playerName,
+                                                  state,
+                                                  tp,
+                                                  elo,
+                                                  enelo,
+                                                  en1,
+                                                  en2,
+                                                  en3,
+                                                  en4,
+                                                  en5,
+                                                  en6,
+                                                  en7
+                                                  )
+   }
+}
+head(chessPlayers)
+```
+
+Now that we have our data in a structured tabular format, we can calculate the average opponents' elo for each player. There's very likely a better way to do this - maybe add them all up in one var ahead of time and keep a separate counter with the number of opponents.
+
+Here I snag the elo of the person whose ID corresponds to each of the 7 possible games where there was an opponent and didn't have a provisional ELO.
+
+```{r opp-elo-calc}
+for(i in 1:nrow(chessPlayers)) 
+{
+  total <- 0
+  chessPlayers$AvgPreEnElo[i] <- 0
+  if(chessPlayers$en1[i] != '') {
+    enElo <- trimws(chessPlayers$PreElo[as.numeric(chessPlayers$en1[i])])
+    if(!grepl('P', enElo, fixed = TRUE)) {
+      enEloNum <- as.numeric(enElo)
+      chessPlayers$AvgPreEnElo[i] <- chessPlayers$AvgPreEnElo[i] + enEloNum
+      total <- total + 1
+    }
+  }
+  if(chessPlayers$en2[i] != '') {
+    enElo <- trimws(chessPlayers$PreElo[as.numeric(chessPlayers$en2[i])])
+    if(!grepl('P', enElo, fixed = TRUE)) {
+      chessPlayers$AvgPreEnElo[i] <- as.numeric(chessPlayers$AvgPreEnElo[i]) + as.numeric(enElo)
+      total <- total + 1
+    }
+  }
+  if(chessPlayers$en3[i] != '') {
+    enElo <- trimws(chessPlayers$PreElo[as.numeric(chessPlayers$en3[i])])
+    if(!grepl('P', enElo, fixed = TRUE)) {
+      chessPlayers$AvgPreEnElo[i] <- as.numeric(chessPlayers$AvgPreEnElo[i]) + as.numeric(enElo)
+      total <- total + 1
+    }
+  }
+  if(chessPlayers$en4[i] != '') {
+    enElo <- trimws(chessPlayers$PreElo[as.numeric(chessPlayers$en4[i])])
+    if(!grepl('P', enElo, fixed = TRUE)) {
+      chessPlayers$AvgPreEnElo[i] <- as.numeric(chessPlayers$AvgPreEnElo[i]) + as.numeric(enElo)
+      total <- total + 1
+    }
+  }
+  if(chessPlayers$en5[i] != '') {
+    enElo <- trimws(chessPlayers$PreElo[as.numeric(chessPlayers$en5[i])])
+    if(!grepl('P', enElo, fixed = TRUE)) {
+      chessPlayers$AvgPreEnElo[i] <- as.numeric(chessPlayers$AvgPreEnElo[i]) + as.numeric(enElo)
+      total <- total + 1
+    }
+  }
+  if(chessPlayers$en6[i] != '') {
+    enElo <- trimws(chessPlayers$PreElo[as.numeric(chessPlayers$en6[i])])
+    if(!grepl('P', enElo, fixed = TRUE)) {
+      chessPlayers$AvgPreEnElo[i] <- as.numeric(chessPlayers$AvgPreEnElo[i]) + as.numeric(enElo)
+      total <- total + 1
+    }
+  }
+  if(chessPlayers$en7[i] != '') {
+    enElo <- trimws(chessPlayers$PreElo[as.numeric(chessPlayers$en7[i])])
+    if(!grepl('P', enElo, fixed = TRUE)) {
+      chessPlayers$AvgPreEnElo[i] <- as.numeric(chessPlayers$AvgPreEnElo[i]) + as.numeric(enElo)
+      total <- total + 1
+    }
+  }
+  chessPlayers$AvgPreEnElo[i] <- chessPlayers$AvgPreEnElo[i] / total
+}
+head(chessPlayers)
+```
+
+Now we can save the file.
+
+```{r save-csv}
+write.csv(chessPlayers, "tournamentinfo.csv", row.names=FALSE)
+```
+
+If we don't want to include the header...
+
+```{r save-csv-no-header}
+write.table(chessPlayers, "tournamentinfo_noheader.csv", row.names=FALSE, col.names=FALSE)
+```
