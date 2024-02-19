@@ -18,11 +18,11 @@ if("tidyverse" %in% rownames(installed.packages()) == FALSE) {install.packages("
 library(tidyverse)
 ```
 
-## R Markdown
+## Overview
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+This is a project where one must parse a tournament's results and output a csv file containing this data structured and including average opponent ELO. 
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+First, we must read the file.
 
 ```{r get-raw-data}
 chessTxt <- paste(readLines(url("https://raw.githubusercontent.com/Kadaeux/DATA607Project1/master/data/tournamentinfo.txt")))
@@ -32,7 +32,7 @@ chessTxt[6]
 chessTxt[7]
 ```
 
-So, we need to take out the player's name, their points, their and their opponents elo, and their state. Each of these, for each player, are spread out across two separate lines. For each player, they're in the same relative location on the line. So lines beginning with dashes can be skipped, lines beginning with numbers will contain the name, opponents, and total points, and the line after that will contain that same player's state and pre-elo. 
+So, we need to take out the player's name, their points, their and their opponents ELO, and their state. Each of these, for each player, are spread out across two separate lines. For each player, they're in the same relative location on the line. So lines beginning with dashes can be skipped, lines beginning with numbers will contain the name, opponents, and total points, and the line after that will contain that same player's state and pre-elo. 
 
 The first time I did this, I had Total Points as a Double and the Elos as an Integer... this did not take into account the P in these values. Thus, I simple switched them all to strings to better handle it.
 
@@ -108,7 +108,7 @@ for(i in 1:nrow(chessPlayers))
     enElo <- trimws(chessPlayers$PreElo[as.numeric(chessPlayers$en1[i])])
     if(!grepl('P', enElo, fixed = TRUE)) {
       enEloNum <- as.numeric(enElo)
-      chessPlayers$AvgPreEnElo[i] <- chessPlayers$AvgPreEnElo[i] + enEloNum
+      chessPlayers$AvgPreEnElo[i] <- as.numeric(chessPlayers$AvgPreEnElo[i]) + enEloNum
       total <- total + 1
     }
   }
@@ -154,6 +154,7 @@ for(i in 1:nrow(chessPlayers))
       total <- total + 1
     }
   }
+  if(is.numeric(chessPlayers$AvgPreEnElo[i]))
   chessPlayers$AvgPreEnElo[i] <- chessPlayers$AvgPreEnElo[i] / total
 }
 head(chessPlayers)
